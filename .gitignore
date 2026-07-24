@@ -1,0 +1,38 @@
+# ── Python ──────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+dist/
+build/
+*.spec
+*.manifest
+
+.psd
+.webm
+
+# ── Virtual environment ─────────────────────────────────
+venv/
+.venv/
+env/
+.env/
+
+# ── IDE / Editor ────────────────────────────────────────
+.vscode/
+.idea/
+.history/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ── Project runtime data ────────────────────────────────
+data/
+*.log
+*.zip
+
+# ── PyInstaller artifacts ───────────────────────────────
+*.exe
