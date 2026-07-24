@@ -28,17 +28,6 @@ Asset Organizer is the ingestion pipeline for [Evoury](https://github.com/mh3nj/
 
 ---
 
-## Screenshots
-
-<table>
-  <tr>
-    <td><img src="docs/screenshots/dark main window.webp" loading="lazy"></td>
-    <td><img src="docs/screenshots/light main window.png.webp" loading="lazy"></td>
-  </tr>
-</table>
-
----
-
 ## Pipeline
 
 Each asset goes through these stages in order:
@@ -78,7 +67,18 @@ The queue is single-threaded. One file is processed completely before the next s
 
 ## Screenshots
 
-*Screenshots coming soon. Placeholder banner images are in `docs/screenshots/`.*
+<table>
+  <tr>
+    <td><img src="docs/screenshots/dark main window.webp" loading="lazy"></td>
+    <td><img src="docs/screenshots/light main window.png.webp" loading="lazy"></td>
+  </tr>
+</table>
+
+---
+
+## demo
+
+[assetOrganizer.demo.webm](https://github.com/user-attachments/assets/75f56442-a58c-48f2-9005-a6bc71fdab32)
 
 ---
 
