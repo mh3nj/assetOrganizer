@@ -1,7 +1,6 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/banner-dark.png">
-    <img src="docs/screenshots/banner-light.png" alt="Asset Organizer" width="720">
+    <img src="docs/assetorganizer banner.webp" alt="Asset Organizer" width="720">
   </picture>
 </p>
 
@@ -26,6 +25,17 @@ Asset Organizer processes PSD, AI, and EPS files one at a time. For each file it
 The goal is simple: replace generic filenames like `Logo_Final.ai` with searchable names like `green white black letter logo minimal corporate shadow.ai`. Once files are named this way, any filesystem search tool (Windows Search, Everything, grep) finds them immediately — no database, no tags, no proprietary catalog.
 
 Asset Organizer is the ingestion pipeline for [Evoury](https://github.com/mh3nj/evoury), a full-featured digital asset management platform. Evoury provides the catalog and grid interface; Asset Organizer prepares the assets for it.
+
+---
+
+## Screenshots
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/dark main window.webp" loading="lazy"></td>
+    <td><img src="docs/screenshots/light main window.png.webp" loading="lazy"></td>
+  </tr>
+</table>
 
 ---
 
