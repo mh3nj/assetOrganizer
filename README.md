@@ -136,6 +136,8 @@ Each script checks for Python 3.11+, creates a `.venv` if one does not exist, in
 
 ### Run from source manually
 
+please fix the paths if config.py yourself <3.
+
 ```bash
 # Clone the repository
 git clone https://github.com/YOUR_USER/AssetOrganizer.git
