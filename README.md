@@ -128,7 +128,7 @@ You usually don't need to edit anything afterwards: Adobe and WinRAR paths are *
 
 ### Prebuilt executable (recommended)
 
-Download the latest `AssetOrganizer.exe` from the [Releases page](#). Extract the archive and run the executable. No Python or dependencies required — everything is bundled.
+Download the latest `AssetOrganizer.exe` from the [Releases page](https://github.com/mh3nj/assetOrganizer/releases/tag/organizer). Extract the archive and run the executable. No Python or dependencies required — everything is bundled.
 
 ### Run from source with setup script
 
