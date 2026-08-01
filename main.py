@@ -25,11 +25,20 @@ from ui import ApplicationUI
 
 from requirements_check import check_environment
 
+try:
+    from config import Config
+except ImportError:
+    print(
+        "config.py not found.\n"
+        "First-time setup: copy config.example.py to config.py "
+        "(paths are auto-detected, no edits needed)."
+    )
+    raise SystemExit(1)
+
 
 def main():
 
     config = Config()
-
     logger = Logger(config)
     logger.info("Asset Organizer started.")
 

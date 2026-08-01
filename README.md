@@ -76,9 +76,9 @@ The queue is single-threaded. One file is processed completely before the next s
 
 ---
 
-## demo
+## Demo
 
-[assetOrganizer.demo.webm](https://github.com/user-attachments/assets/75f56442-a58c-48f2-9005-a6bc71fdab32)
+[assetOrganizer.demo.webm](docs/assetOrganizer.demo.webm)
 
 ---
 
@@ -113,6 +113,18 @@ pip install -r requirements.txt
 
 Asset Organizer runs on Windows only (it depends on Adobe COM interop). The setup scripts and manual steps below all assume a Windows environment.
 
+### First run: configuration
+
+Every setup path below needs one manual step the first time:
+
+```bash
+copy config.example.py config.py
+```
+
+`config.example.py` is a template — the app never imports it. It reads `config.py`, so without that copy the app won't start.
+
+You usually don't need to edit anything afterwards: Adobe and WinRAR paths are **auto-detected** from `C:\Program Files`. Only touch `config.py` if you want to force a specific Adobe version or override defaults. `config.py` is gitignored; only ever push `config.example.py`.
+
 ### Prebuilt executable (recommended)
 
 Download the latest `AssetOrganizer.exe` from the [Releases page](#). Extract the archive and run the executable. No Python or dependencies required — everything is bundled.
@@ -136,8 +148,6 @@ Each script checks for Python 3.11+, creates a `.venv` if one does not exist, in
 
 ### Run from source manually
 
-please fix the paths if config.py yourself <3.
-
 ```bash
 # Clone the repository
 git clone https://github.com/YOUR_USER/AssetOrganizer.git
@@ -149,6 +159,9 @@ python -m venv .venv
 
 # Install dependencies
 pip install -r requirements.txt
+
+# Create config.py from the template (one-time; paths auto-detect)
+copy config.example.py config.py
 
 # Launch the application
 python main.py
@@ -162,6 +175,8 @@ python -m PyInstaller AssetOrganizer.spec --noconfirm
 ```
 
 The executable will be at `dist/AssetOrganizer/AssetOrganizer.exe`. It includes all dependencies and the `scripts/` folder containing Adobe ExtendScript files.
+
+> **Always build from the `.spec` file.** Running `pyinstaller main.py` regenerates the spec with no data files and silently drops the `scripts/` folder, which makes every job fail with "Missing JSX".
 
 ---
 
@@ -212,7 +227,9 @@ Only jobs that never reached "done" are recovered. Jobs whose source file was al
 
 ## Configuration
 
-Edit `config.py` to change these values:
+First-time setup: `copy config.example.py config.py` (the app only reads `config.py` — `config.example.py` is just a template you can push to GitHub).
+
+All Adobe/WinRAR paths auto-detect from `C:\Program Files`, so most people never touch this file. Edit `config.py` if you need to override the defaults:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
@@ -223,7 +240,7 @@ Edit `config.py` to change these values:
 | `AVIF_QUALITY` | 90 | AVIF encode quality (0–100) |
 | `AVIF_SPEED` | 6 | AVIF encoding speed (0=slowest/best, 10=fastest) |
 | `THUMB_QUALITY` | 70 | Thumbnail AVIF quality |
-| `MINIMUM_FREE_SPACE_GB` | 10 | Disk space safety threshold |
+| `MINIMUM_FREE_SPACE_GB` | 1 | Disk space safety threshold |
 | `ADOBE_STARTUP_WAIT` | 20 | Seconds to wait for Adobe to launch |
 | `ADOBE_RECOVERY_WAIT` | 20 | Seconds to wait after restarting Adobe |
 | `DOCUMENT_TIMEOUT` | 60 | Seconds to wait for a document to finish opening |
@@ -267,7 +284,8 @@ You can use Asset Organizer without Evoury. It produces standard files that work
 
 ```
 main.py                  Entry point — wires all components
-├── config.py            Global configuration
+├── config.py            Global configuration (local-only, gitignored)
+├── config.example.py    Sanitized config template (push to GitHub)
 ├── logger.py            File, console, and UI logging
 ├── requirements_check.py   Environment verification
 │
