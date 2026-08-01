@@ -41,7 +41,10 @@ class Config:
         self.THUMB_HEIGHT = 400
         self.THUMB_QUALITY = 70
 
-        self.MINIMUM_FREE_SPACE_GB = 10
+        # Only the drive holding the source folder is ever written to
+        # (PNG/AVIF previews + final RAR live next to the source).
+        # A single job needs at most ~1 GB, so requiring 10 GB was excessive.
+        self.MINIMUM_FREE_SPACE_GB = 1
 
         self.ADOBE_STARTUP_WAIT = 20
         self.ADOBE_RECOVERY_WAIT = 20
