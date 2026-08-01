@@ -1,10 +1,13 @@
 """
-config.py
+config.example.py
 
-Global application configuration.
+Sanitized public copy of the app configuration — safe to push to GitHub.
+This file contains no machine-specific paths.
 
-LOCAL-ONLY FILE (gitignored). Machine-specific paths may be hardcoded here.
-The sanitized version for the repo is `config.example.py` — keep them in sync.
+Setup on a new machine:
+    1. Copy this file to `config.py` (config.py is gitignored).
+    2. Nothing else required: Adobe / WinRAR paths are auto-detected
+       from C:\\Program Files. Override any path below to force it.
 """
 
 import glob
