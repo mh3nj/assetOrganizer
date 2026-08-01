@@ -1,9 +1,16 @@
 """
-config.py
+config.example.py
 
-Global application configuration.
+Sanitized public copy of the app configuration — safe to push to GitHub.
+This file contains no machine-specific paths.
+
+Setup on a new machine:
+    1. Copy this file to `config.py` (config.py is gitignored).
+    2. Nothing else required: Adobe / WinRAR paths are auto-detected
+       from C:\\Program Files. Override any path below to force it.
 """
 
+import glob
 from pathlib import Path
 
 
@@ -21,17 +28,29 @@ class Config:
         self.SUPPORTED_SOURCE_EXTENSIONS = [".psd", ".ai"]
 
         # ── Adobe & WinRAR paths ─────────────────────
-        # Update these to match your installed versions.
-        # On first run the app will warn if a path doesn't exist;
-        # only WinRAR is a hard requirement.
-        self.PHOTOSHOP_PATH = Path(
-            r"C:\Program Files\Adobe\Adobe Photoshop [VERSION]\Photoshop.exe"
+        # Auto-detected from C:\Program Files when the configured path
+        # doesn't exist. Set an exact path below to force a specific
+        # version instead of the newest one found.
+        self.PHOTOSHOP_PATH = self._auto_detect(
+            Path(r"C:\Program Files\Adobe\Adobe Photoshop\Photoshop.exe"),
+            r"C:\Program Files\Adobe\Adobe Photoshop*\Photoshop.exe",
+            r"C:\Program Files (x86)\Adobe\Adobe Photoshop*\Photoshop.exe",
         )
-        self.ILLUSTRATOR_PATH = Path(
-            r"C:\Program Files\Adobe\Adobe Illustrator [VERSION]\Support Files\Contents\Windows\Illustrator.exe"
+        self.ILLUSTRATOR_PATH = self._auto_detect(
+            Path(r"C:\Program Files\Adobe\Adobe Illustrator\Support Files\Contents\Windows\Illustrator.exe"),
+            r"C:\Program Files\Adobe\Adobe Illustrator*\Support Files\Contents\Windows\Illustrator.exe",
+            r"C:\Program Files (x86)\Adobe\Adobe Illustrator*\Support Files\Contents\Windows\Illustrator.exe",
         )
-        self.WINRAR_PATH = Path(r"C:\Program Files\WinRAR\Rar.exe")
-        self.WINRAR_GUI_PATH = Path(r"C:\Program Files\WinRAR\WinRAR.exe")
+        self.WINRAR_PATH = self._auto_detect(
+            Path(r"C:\Program Files\WinRAR\Rar.exe"),
+            r"C:\Program Files\WinRAR\Rar.exe",
+            r"C:\Program Files (x86)\WinRAR\Rar.exe",
+        )
+        self.WINRAR_GUI_PATH = self._auto_detect(
+            Path(r"C:\Program Files\WinRAR\WinRAR.exe"),
+            r"C:\Program Files\WinRAR\WinRAR.exe",
+            r"C:\Program Files (x86)\WinRAR\WinRAR.exe",
+        )
 
         self.PREVIEW_WIDTH = 2000
         self.PREVIEW_HEIGHT = 2000
@@ -62,6 +81,18 @@ class Config:
         # dev source tree, PyInstaller _internal (with datas), or a plain
         # copy next to the exe. Picks the first one that actually exists.
         self.SCRIPTS_DIR = self._find_scripts_dir()
+
+    @staticmethod
+    def _auto_detect(configured: Path, *patterns: str) -> Path:
+        if configured.exists():
+            return configured
+        matches = []
+        for pattern in patterns:
+            matches.extend(glob.glob(pattern))
+        if matches:
+            matches.sort()
+            return Path(matches[-1])
+        return configured
 
     def _find_scripts_dir(self):
         import sys
