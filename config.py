@@ -58,4 +58,19 @@ class Config:
             "test": True
         }
 
-        self.SCRIPTS_DIR = self.BASE_DIR / "scripts"
+        # Locate the JSX scripts folder across all deployment layouts:
+        # dev source tree, PyInstaller _internal (with datas), or a plain
+        # copy next to the exe. Picks the first one that actually exists.
+        self.SCRIPTS_DIR = self._find_scripts_dir()
+
+    def _find_scripts_dir(self):
+        import sys
+        candidates = [self.BASE_DIR / "scripts"]
+        if getattr(sys, "frozen", False):
+            exe_dir = Path(sys.executable).parent
+            candidates.append(exe_dir / "_internal" / "scripts")
+            candidates.append(exe_dir / "scripts")
+        for candidate in candidates:
+            if candidate.is_dir():
+                return candidate
+        return candidates[0]
