@@ -78,7 +78,8 @@ The queue is single-threaded. One file is processed completely before the next s
 
 ## Demo
 
-[assetOrganizer.demo.webm](docs/assetOrganizer.demo.webm)
+[assetOrganizer.demo.webm](https://github.com/user-attachments/assets/8b1f5923-c615-49a4-8fd1-27f8e6403c7a)
+
 
 ---
 
