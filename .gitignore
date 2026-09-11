@@ -12,6 +12,8 @@ build/
 
 .psd
 .webm
+*.psd
+*.webm
 
 # ── Virtual environment ─────────────────────────────────
 venv/
