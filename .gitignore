@@ -34,5 +34,9 @@ data/
 *.log
 *.zip
 
+# ── Local-only configuration (contains machine-specific paths).
+#    Push config.example.py instead.
+config.py
+
 # ── PyInstaller artifacts ───────────────────────────────
 *.exe

@@ -1,9 +1,8 @@
 """
-photoshop.py
+illustrator.py
 
-Persistent Photoshop controller.
-Keeps Photoshop open. Closes only documents.
-Restarts only when cache is full or queue ends.
+Persistent Illustrator controller.
+Keeps Illustrator open. Closes only documents.
 """
 
 from pathlib import Path
@@ -11,62 +10,35 @@ import time
 import subprocess
 
 import win32com.client
-from win32com.client import Dispatch, GetActiveObject
-from pywintypes import com_error
-from jsx_bridge import JSXBridge
+from adobe.jsx_bridge import JSXBridge
 
 
-class PhotoshopController:
+class IllustratorController:
 
     def __init__(self, config, logger):
         self.config = config
         self.logger = logger
         self.app = None
         self.jsx = JSXBridge(config.SCRIPTS_DIR, logger)
-        self._launched_photoshop = False
-        self._files_opened = 0
 
     def start(self):
         if self.app:
             return
-
-        # Try connecting to an already-running instance first.
-        # GetActiveObject attaches without modifying its UI state.
+        self.logger.info("Starting Illustrator...")
         try:
-            self.app = GetActiveObject("Photoshop.Application")
-            self.logger.info("Connected to running Photoshop.")
-            self._launched_photoshop = False
-            return
-        except com_error:
-            pass
-
-        # No running instance found — launch and dispatch.
-        self.logger.info("Launching Photoshop...")
-        try:
-            self.app = Dispatch("Photoshop.Application")
+            self.app = win32com.client.Dispatch("Illustrator.Application")
         except Exception:
-            subprocess.Popen([str(self.config.PHOTOSHOP_PATH)])
+            subprocess.Popen([str(self.config.ILLUSTRATOR_PATH)])
             time.sleep(self.config.ADOBE_STARTUP_WAIT)
-            self.app = Dispatch("Photoshop.Application")
-
-        # Only toggle Visible when WE launched it, not when attaching
-        self.app.Visible = True
-        self._launched_photoshop = True
-        self.logger.info("Photoshop ready.")
-
-    def is_alive(self) -> bool:
-        try:
-            return self.app is not None
-        except Exception:
-            return False
+            self.app = win32com.client.Dispatch("Illustrator.Application")
+        self.logger.info("Illustrator ready.")
 
     def open_file(self, file: Path):
         self.start()
         self.close_all_documents()
-        self.logger.info(f"Opening PSD: {file.name}")
+        self.logger.info(f"Opening in Illustrator: {file.name}")
         self.app.Open(str(file))
         self.wait_until_ready(file.name)
-        self._files_opened += 1
 
     def wait_until_ready(self, expected_name=None, timeout=60):
         start = time.time()
@@ -82,7 +54,7 @@ class PhotoshopController:
             except Exception:
                 pass
             if time.time() - start > timeout:
-                raise TimeoutError("Photoshop document timeout.")
+                raise TimeoutError("Illustrator document timeout.")
             time.sleep(1)
 
     def execute(self, script: str):
@@ -90,7 +62,7 @@ class PhotoshopController:
 
     def _run_script(self, function: str, argument=None):
         script = self.jsx.build_call(function, argument)
-        full = self.jsx.load_script("photoshop_export.jsx") + "\n" + script
+        full = self.jsx.load_script("illustrator_export.jsx") + "\n" + script
         self.execute(full)
 
     def export_preview(self, output: Path):
@@ -100,29 +72,25 @@ class PhotoshopController:
         self._run_script("hideVisibleLayers")
 
     def save(self):
-        # Use COM Save directly for reliability (avoids path issues)
         self.app.ActiveDocument.Save()
 
     def close_document(self):
         try:
-            # 2 = psSaveChanges — saves before closing, no dialog
             self.app.ActiveDocument.Close(2)
-            self.logger.info("PSD tab closed.")
+            self.logger.info("AI tab closed.")
         except Exception as error:
             self.logger.warning(str(error))
 
     def close_all_documents(self):
-        """Close all open documents without dialogs."""
         try:
             while self.app.Documents.Count > 0:
                 doc = self.app.Documents.Item(1)
-                doc.Close(2)  # psSaveChanges
+                doc.Close(2)
         except Exception:
             pass
 
     def restart(self):
-        self.logger.warning("Restarting Photoshop (cache/error recovery).")
-        # Close all docs first to avoid save prompts
+        self.logger.warning("Restarting Illustrator.")
         self.close_all_documents()
         try:
             self.app.Quit()
@@ -133,9 +101,6 @@ class PhotoshopController:
         self.start()
         time.sleep(self.config.ADOBE_RECOVERY_WAIT)
 
-    def needs_restart(self, interval: int = 10) -> bool:
-        return self._files_opened > 0 and self._files_opened % interval == 0
-
     def close(self):
         if not self.app:
             return
@@ -143,6 +108,6 @@ class PhotoshopController:
             self.close_all_documents()
             self.app.Quit()
             self.app = None
-            self.logger.info("Photoshop closed.")
+            self.logger.info("Illustrator closed.")
         except Exception as error:
             self.logger.warning(str(error))

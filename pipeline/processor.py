@@ -20,11 +20,11 @@ Pipeline order per asset:
 
 from pathlib import Path
 
-from job import JobStatus
-from naming import NameRequest
-from filename import FilenameManager
-from cleanup import CleanupManager
-from adobe_recovery import AdobeRecovery
+from pipeline.job import JobStatus
+from files.naming import NameRequest
+from files.filename import FilenameManager
+from files.cleanup import CleanupManager
+from adobe.recovery import AdobeRecovery
 
 
 class AssetProcessor:

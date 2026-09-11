@@ -10,7 +10,7 @@ from tkinter import filedialog, scrolledtext
 from pathlib import Path
 from PIL import Image, ImageTk
 
-from job import Job
+from pipeline.job import Job
 
 
 THEMES = {

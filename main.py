@@ -7,29 +7,38 @@ Application entry point.
 from config import Config
 from logger import Logger
 
-from scanner import AssetScanner
-from queue import JobQueue
+from pipeline.scanner import AssetScanner
+from pipeline.queue import JobQueue
 
-from storage import StorageMonitor
-from preview import PreviewProcessor
-from archive import RarArchive
+from files.storage import StorageMonitor
+from files.preview import PreviewProcessor
+from files.archive import RarArchive
 
-from photoshop import PhotoshopController
-from illustrator import IllustratorController
+from adobe.photoshop import PhotoshopController
+from adobe.illustrator import IllustratorController
 
-from processor import AssetProcessor
+from pipeline.processor import AssetProcessor
 
-from session import SessionManager
+from files.session import SessionManager
 
-from ui import ApplicationUI
+from ui.app import ApplicationUI
 
 from requirements_check import check_environment
+
+try:
+    from config import Config
+except ImportError:
+    print(
+        "config.py not found.\n"
+        "First-time setup: copy config.example.py to config.py "
+        "(paths are auto-detected, no edits needed)."
+    )
+    raise SystemExit(1)
 
 
 def main():
 
     config = Config()
-
     logger = Logger(config)
     logger.info("Asset Organizer started.")
 

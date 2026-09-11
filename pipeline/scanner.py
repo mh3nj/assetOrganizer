@@ -7,7 +7,7 @@ Asset discovery system.
 from pathlib import Path
 import shutil
 
-from job import Job
+from pipeline.job import Job
 
 
 class AssetScanner:
