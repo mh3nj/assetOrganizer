@@ -5,6 +5,7 @@ Application logging system.
 """
 
 import logging
+import sys
 import threading
 
 
@@ -13,6 +14,15 @@ class Logger:
     def __init__(self, config):
         self._ui_callback = None
         self._lock = threading.Lock()
+
+        # Filenames here are often Persian/Arabic; a cp1256 console would
+        # raise UnicodeEncodeError mid-job. Degrade to ? instead of dying.
+        for stream in (sys.stdout, sys.stderr):
+            try:
+                if stream is not None and hasattr(stream, "reconfigure"):
+                    stream.reconfigure(errors="replace")
+            except Exception:
+                pass
 
         self.logger = logging.getLogger("AssetOrganizer")
         self.logger.setLevel(logging.INFO)
