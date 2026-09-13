@@ -7,7 +7,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
-## Unreleased — 1.3.0
+## 1.3.0 — 2026-09-13
 
 ### Added
 
@@ -20,6 +20,8 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 - **Engine indicator.** Status bar shows `Ready (Adobe)` / `Ready (Affinity)`. (`ui/app.py`)
 - **Affinity startup checks.** Warns when the exe is missing or the MCP server is off instead of failing mid-queue. (`requirements_check.py`)
 - **Affinity setup guide.** `docs/affinity-setup.md` covers enabling MCP, switching engines, per-stage behavior, limitations, and hardening scripts to an exact build.
+- **Tab recycle.** `AFFINITY_RESTART_EVERY` (default 10) recycles self-launched Affinity to clear tabs 3.2.1 can't close (verified clean, no recovery prompts); close warnings fire once per queue plus an end-of-queue orphan count. (`affinity.py`)
+- **Console-safe logging.** stdout/stderr use replace-on-error so non-locale (e.g. Persian) filenames can't crash a job mid-log. (`logger.py`)
 
 ---
 

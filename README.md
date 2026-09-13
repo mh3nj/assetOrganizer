@@ -13,7 +13,7 @@
   <a href="#"><img src="https://img.shields.io/badge/Adobe-Photoshop-blueviolet?logo=adobephotoshop&logoColor=white" alt="Photoshop"></a>
   <a href="#"><img src="https://img.shields.io/badge/Adobe-Illustrator-orange?logo=adobeillustrator&logoColor=white" alt="Illustrator"></a>
   <a href="docs/affinity-setup.md"><img src="https://img.shields.io/badge/Affinity-supported-68d9f0" alt="Affinity"></a>
-  <a href="#"><img src="https://img.shields.io/badge/release-v1.2.0-brightgreen" alt="Release 1.2.0"></a>
+  <a href="https://github.com/mh3nj/assetOrganizer/releases"><img src="https://img.shields.io/badge/release-v1.3.0-brightgreen" alt="Release 1.3.0"></a>
   <a href="https://github.com/mh3nj/evoury"><img src="https://img.shields.io/badge/Evoury-DAM-ff69b4" alt="Evoury DAM"></a>
 </p>
 
@@ -249,6 +249,7 @@ Prefer the in-app route: **⚙ Settings** writes to `data/settings.json` (gitign
 | `AFFINITY_MCP_PORT` | 6767 | Local Affinity scripting server port |
 | `AFFINITY_STARTUP_WAIT` | 25 | Seconds to wait for Affinity to launch |
 | `AFFINITY_RECOVERY_WAIT` | 20 | Seconds to wait after restarting Affinity |
+| `AFFINITY_RESTART_EVERY` | 10 | Recycle self-launched Affinity every N files (3.2.1 can't close tabs; 0 = never) |
 | `THEME` | `dark` | Startup theme (`dark` or `light`) |
 
 ---

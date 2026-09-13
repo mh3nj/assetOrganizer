@@ -56,7 +56,7 @@ Connection details that cost us a debugging session, so you never repeat it:
 
 ## Known limitations
 
-- **Tabs accumulate.** Nothing can close documents in 3.2.1, so a 200-file batch leaves 200 tabs open. Split big batches and close tabs by hand between them. Self-launched Affinity restarts clear tabs; your own instance is never quit for you.
+- **Tabs accumulate (your instance).** Nothing can close documents in 3.2.1. If Asset Organizer launched Affinity itself, it recycles the app every `AFFINITY_RESTART_EVERY` files (default 10) to clear them — verified: relaunch comes back clean, no recovery prompts. If you opened Affinity yourself, it never quits it for you: split big batches and close tabs by hand. The queue-end log tells you how many tabs were left behind.
 - **Archives hold the original bytes.** Hide happens in memory but PSDs can't save back, so the RAR contains the file as it was (layers visible). For `.afphoto`/`.afdesign` saves may succeed — watch the log.
 - **Renders are max 1024px.** Affinity caps `render_spread`. Fine for naming/AVIFs, not a full-res export.
 - **Adobe file fidelity.** Affinity opens PSD/AI but may rasterize or
