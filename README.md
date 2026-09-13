@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assetorganizer banner.webp" alt="Asset Organizer" width="720">
+  <img src="docs/banner.webp" alt="Asset Organizer" width="720">
 </p>
 
 <p align="center">
@@ -70,12 +70,9 @@ The queue is single-threaded. One file is processed completely before the next s
 
 ## Screenshots
 
-<table>
-  <tr>
-    <td align="center"><img src="docs/screenshots/dark main window.webp" alt="Dark theme" width="400"></td>
-    <td align="center"><img src="docs/screenshots/light main window.png.webp" alt="Light theme" width="400"></td>
-  </tr>
-</table>
+<p align="center">
+  <img src="docs/screenshots/screenshots.webp" alt="screenshot" width="720">
+</p>
 
 ---
 
