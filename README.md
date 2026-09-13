@@ -76,6 +76,12 @@ The queue is single-threaded. One file is processed completely before the next s
 
 ---
 
+## Demo
+
+https://github.com/user-attachments/assets/f402700d-e198-4950-b1c5-0d554f4c6bdb
+
+---
+
 ## Requirements
 
 ### Runtime
