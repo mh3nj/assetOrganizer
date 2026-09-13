@@ -6,12 +6,16 @@ This file contains no machine-specific paths.
 
 Setup on a new machine:
     1. Copy this file to `config.py` (config.py is gitignored).
-    2. Nothing else required: Adobe / WinRAR paths are auto-detected
-       from C:\\Program Files. Override any path below to force it.
+    2. Nothing else required: Adobe / Affinity / WinRAR paths are
+       auto-detected from C:\\Program Files. Override any path below to
+       force it, or use the in-app Settings dialog (stored machine-local
+       in data/settings.json, never pushed).
 """
 
 import glob
 from pathlib import Path
+
+from files.app_settings import AppSettings
 
 
 class Config:
@@ -24,8 +28,18 @@ class Config:
 
         self.SESSION_FILE = self.DATA_DIR / "session.json"
         self.LOG_FILE = self.DATA_DIR / "organizer.log"
+        self.SETTINGS_FILE = self.DATA_DIR / "settings.json"
+
+        # ── Processing engine ────────────────────
+        # "adobe"    — Photoshop/Illustrator via COM (default, unchanged).
+        # "affinity" — new unified Affinity (Canva-era) via its local
+        #              MCP scripting server. PSD/AI/EPS open in Affinity
+        #              instead of Adobe; native .afphoto/.afdesign/.afpub
+        #              additionally become scannable.
+        self.ENGINE = "adobe"
 
         self.SUPPORTED_SOURCE_EXTENSIONS = [".psd", ".ai"]
+        self.SUPPORTED_AFFINITY_EXTENSIONS = [".afphoto", ".afdesign", ".afpub"]
 
         # ── Adobe & WinRAR paths ─────────────────────
         # Auto-detected from C:\Program Files when the configured path
@@ -51,6 +65,22 @@ class Config:
             r"C:\Program Files\WinRAR\WinRAR.exe",
             r"C:\Program Files (x86)\WinRAR\WinRAR.exe",
         )
+        # New unified Affinity (Canva-era). Classic V2 Photo/Designer
+        # installs are picked up as fallbacks for opening files, but
+        # only the unified app exposes the MCP scripting server.
+        self.AFFINITY_PATH = self._auto_detect(
+            Path(r"C:\Program Files\Affinity\Affinity\Affinity.exe"),
+            r"C:\Program Files\Affinity\Affinity\Affinity.exe",
+            r"C:\Program Files\WindowsApps\SerifEuropeLtd.Affinity_*Affinity.exe",
+            r"C:\Program Files\WindowsApps\Canva*.Affinity_*Affinity.exe",
+            r"C:\Program Files\Affinity\Photo 2\Photo.exe",
+            r"C:\Program Files\Affinity\Designer 2\Designer.exe",
+        )
+        self.AFFINITY_MCP_HOST = "127.0.0.1"
+        self.AFFINITY_MCP_PORT = 6767
+        self.AFFINITY_MCP_URL = f"http://{self.AFFINITY_MCP_HOST}:{self.AFFINITY_MCP_PORT}"
+        self.AFFINITY_STARTUP_WAIT = 25
+        self.AFFINITY_RECOVERY_WAIT = 20
 
         self.PREVIEW_WIDTH = 2000
         self.PREVIEW_HEIGHT = 2000
@@ -77,10 +107,59 @@ class Config:
             "test": True
         }
 
+        self.THEME = "dark"
+
         # Locate the JSX scripts folder across all deployment layouts:
         # dev source tree, PyInstaller _internal (with datas), or a plain
         # copy next to the exe. Picks the first one that actually exists.
         self.SCRIPTS_DIR = self._find_scripts_dir()
+
+        # Machine-local overrides from the Settings dialog win over
+        # every default above. Missing/invalid values fall back silently.
+        self._apply_user_settings()
+
+    def _apply_user_settings(self):
+        overrides = AppSettings(self.SETTINGS_FILE).load()
+        if not overrides:
+            return
+        path_keys = {"PHOTOSHOP_PATH", "ILLUSTRATOR_PATH", "WINRAR_PATH",
+                     "WINRAR_GUI_PATH", "AFFINITY_PATH"}
+        int_keys = {"PREVIEW_WIDTH", "PREVIEW_HEIGHT", "AVIF_QUALITY",
+                    "AVIF_SPEED", "THUMB_WIDTH", "THUMB_HEIGHT",
+                    "THUMB_QUALITY", "MINIMUM_FREE_SPACE_GB",
+                    "ADOBE_STARTUP_WAIT", "ADOBE_RECOVERY_WAIT",
+                    "AFFINITY_MCP_PORT", "AFFINITY_STARTUP_WAIT",
+                    "AFFINITY_RECOVERY_WAIT", "DOCUMENT_TIMEOUT",
+                    "MAX_RETRIES"}
+        for key, value in overrides.items():
+            if key in path_keys and isinstance(value, str) and value:
+                setattr(self, key, Path(value))
+            elif key == "ENGINE" and value in ("adobe", "affinity"):
+                self.ENGINE = value
+            elif key == "THEME" and value in ("dark", "light"):
+                self.THEME = value
+            elif key in int_keys:
+                try:
+                    setattr(self, key, int(value))
+                except (TypeError, ValueError):
+                    continue
+            elif key == "SUPPORTED_SOURCE_EXTENSIONS" and isinstance(value, list):
+                cleaned = [str(e).lower() for e in value if str(e).startswith(".")]
+                if cleaned:
+                    self.SUPPORTED_SOURCE_EXTENSIONS = cleaned
+            elif key == "ARCHIVE_PROFILE" and isinstance(value, dict):
+                self.ARCHIVE_PROFILE.update(value)
+        # The MCP URL always follows the (possibly overridden) host/port.
+        self.AFFINITY_MCP_URL = f"http://{self.AFFINITY_MCP_HOST}:{self.AFFINITY_MCP_PORT}"
+
+    def scannable_extensions(self) -> list:
+        """Extensions the scanner should pick up for the active engine."""
+        exts = list(self.SUPPORTED_SOURCE_EXTENSIONS)
+        if self.ENGINE == "affinity":
+            for ext in self.SUPPORTED_AFFINITY_EXTENSIONS:
+                if ext not in exts:
+                    exts.append(ext)
+        return exts
 
     @staticmethod
     def _auto_detect(configured: Path, *patterns: str) -> Path:
