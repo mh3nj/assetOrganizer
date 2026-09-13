@@ -7,6 +7,22 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## Unreleased — 1.3.0
+
+### Added
+
+- **Affinity engine.** New `ENGINE` setting (`adobe`/`affinity`). In Affinity mode PSD/AI/EPS open in the unified Affinity app (Canva-era) via its local MCP scripting server, and native `.afphoto`/`.afdesign`/`.afpub` files become scannable. (`affinity/`, `processor.py`, `scanner.py`)
+- **Stdlib-only MCP client.** Speaks Streamable HTTP with SSE fallback, no new dependencies. Tool calls are schema-driven (`tools/list` first), so they adapt to the running Affinity build's parameter names. (`affinity/mcp_client.py`)
+- **Affinity pipeline scripts.** Probe, hide-layers, save, close, and current-doc-name helpers that always answer in one JSON line; the controller degrades gracefully (warn + continue) on API mismatches instead of failing jobs. (`scripts/affinity_pipeline.js`)
+- **Canvas-rendered previews.** Affinity previews come from the MCP `render` tool (live pixels, no filesystem sandbox); the existing AVIF/thumbnail path consumes them unchanged. (`affinity.py`, `preview.py`)
+- **⚙ Settings dialog.** Engine, app paths (Browse/Auto + found/missing status), formats, preview/AVIF numbers, pipeline timeouts, theme — saved machine-local to `data/settings.json` and applied live, no restart or rebuild. (`ui/settings_dialog.py`, `files/app_settings.py`)
+- **Persisted theme.** The Theme toggle now survives restarts. (`ui/app.py`)
+- **Engine indicator.** Status bar shows `Ready (Adobe)` / `Ready (Affinity)`. (`ui/app.py`)
+- **Affinity startup checks.** Warns when the exe is missing or the MCP server is off instead of failing mid-queue. (`requirements_check.py`)
+- **Affinity setup guide.** `docs/affinity-setup.md` covers enabling MCP, switching engines, per-stage behavior, limitations, and hardening scripts to an exact build.
+
+---
+
 ## 1.2.0 — 2026-07-24
 
 ### Added

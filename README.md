@@ -12,6 +12,7 @@
   <a href="#"><img src="https://img.shields.io/badge/platform-Windows-blue?logo=windows&logoColor=white" alt="Windows"></a>
   <a href="#"><img src="https://img.shields.io/badge/Adobe-Photoshop-blueviolet?logo=adobephotoshop&logoColor=white" alt="Photoshop"></a>
   <a href="#"><img src="https://img.shields.io/badge/Adobe-Illustrator-orange?logo=adobeillustrator&logoColor=white" alt="Illustrator"></a>
+  <a href="docs/affinity-setup.md"><img src="https://img.shields.io/badge/Affinity-supported-68d9f0" alt="Affinity"></a>
   <a href="#"><img src="https://img.shields.io/badge/release-v1.2.0-brightgreen" alt="Release 1.2.0"></a>
   <a href="https://github.com/mh3nj/evoury"><img src="https://img.shields.io/badge/Evoury-DAM-ff69b4" alt="Evoury DAM"></a>
 </p>
@@ -19,6 +20,8 @@
 ---
 
 Asset Organizer processes PSD, AI, and EPS files one at a time. For each file it exports a preview, asks for a descriptive name, creates an AVIF thumbnail, and packages everything into a verified RAR archive.
+
+Files open in **Adobe** (Photoshop/Illustrator via COM) by default, or in the new unified **Affinity** via its local MCP scripting server — switch anytime in **⚙ Settings → Engine**. Affinity mode additionally handles native `.afphoto`, `.afdesign`, and `.afpub` files. See [docs/affinity-setup.md](docs/affinity-setup.md).
 
 The goal is simple: replace generic filenames like `Logo_Final.ai` with searchable names like `green white black letter logo minimal corporate shadow.ai`. Once files are named this way, any filesystem search tool (Windows Search, Everything, grep) finds them immediately — no database, no tags, no proprietary catalog.
 
@@ -32,8 +35,8 @@ Each asset goes through these stages in order:
 
 | # | Stage | Description |
 |---|-------|-------------|
-| 1 | Open | Opens the file in Adobe. Closes any previous document first. |
-| 2 | Export PNG | Renders a full-resolution PNG preview via Adobe ExtendScript. |
+| 1 | Open | Opens the file in Adobe or Affinity (see Engine setting). Closes any previous document first. |
+| 2 | Export PNG | Renders a full-resolution preview (Adobe ExtendScript, or Affinity MCP canvas render). |
 | 3 | Convert AVIF | Converts the PNG to AVIF. Produces a full preview and a 400×400 thumbnail. |
 | 4 | Name prompt | Shows the preview and waits for you to type a name. |
 | 5 | Hide layers | Hides all visible layers for a clean archive copy. |
@@ -51,13 +54,15 @@ The queue is single-threaded. One file is processed completely before the next s
 ## Features
 
 - **One-by-one processing.** Never opens more than one Adobe document at once. Previous document is always closed before the next opens.
+- **Adobe or Affinity engine.** Flip between Photoshop/Illustrator and the unified Affinity app in Settings. Affinity previews render from the live canvas over MCP.
 - **Regenerate preview.** Edit the document in Adobe while the naming prompt is showing, then click "Regen Preview." The document is saved, re-exported, and the preview updates without breaking the pipeline.
 - **Resume failed.** If the app crashes, "Resume Failed" re-queues any incomplete jobs from the last session. Source files of incomplete jobs are always at their original path — they only get renamed after full success.
 - **Session persistence.** Progress saves to `data/session.json` after every job. On restart, the app can recover where it left off.
 - **Disk space guard.** Won't start if free space drops below the configured minimum. Pauses and waits, or stops if you cancel the queue.
 - **Error recovery.** Adobe errors (scratch disk full, out of memory, not responding) trigger an automatic restart and retry.
 - **Name history.** Arrow keys cycle through previously used names.
-- **Dark/light theme.** Toggle via the Theme button.
+- **Dark/light theme.** Toggle via the Theme button. Your choice persists across restarts.
+- **Settings dialog.** Engine, app paths, formats, preview, pipeline, and theme — all in-app, stored machine-local in `data/settings.json`. No `config.py` editing, no rebuild.
 - **AVIF with thumbnails.** Every asset gets a full-size AVIF preview and a small `.thumb.avif` for grid views.
 - **Verified RAR archives.** Best compression, solid archive, tested after creation.
 
@@ -81,7 +86,8 @@ The queue is single-threaded. One file is processed completely before the next s
 | Component | Notes |
 |-----------|-------|
 | **Windows 10+** | COM interop is Windows-only |
-| **Adobe Photoshop CS6+** or **Illustrator CS6+** | Used for opening, exporting, and layer operations |
+| **Adobe Photoshop CS6+** or **Illustrator CS6+** | Default engine: opening, exporting, and layer operations |
+| **Affinity** (unified Canva-era app) | Optional engine: needs Settings → MCP Server enabled ([setup](docs/affinity-setup.md)) |
 | **WinRAR** (`Rar.exe`) | Required for archive creation |
 
 ### Development (running from source)
@@ -194,6 +200,7 @@ The executable will be at `dist/AssetOrganizer/AssetOrganizer.exe`. It includes 
 | **Regen Preview** | Re-export the preview from the currently open document (during naming only) |
 | **Confirm** | Accept the typed name and continue |
 | **Theme** | Toggle dark and light themes |
+| **⚙ Settings** | Engine, app paths, formats, preview, pipeline, theme |
 
 ### Regenerating a preview
 
@@ -219,11 +226,13 @@ Only jobs that never reached "done" are recovered. Jobs whose source file was al
 
 ## Configuration
 
-First-time setup: `copy config.example.py config.py` (the app only reads `config.py` — `config.example.py` is just a template you can push to GitHub).
+Prefer the in-app route: **⚙ Settings** writes to `data/settings.json` (gitignored, machine-local) and applies instantly — no restart, no rebuild. `copy config.example.py config.py` is still the one-time first step (the app only reads `config.py`), but you rarely need to open it: Adobe, Affinity, and WinRAR paths auto-detect from `C:\Program Files`.
 
-All Adobe/WinRAR paths auto-detect from `C:\Program Files`, so most people never touch this file. Edit `config.py` if you want to override the defaults:
+`config.py` ships the defaults; `data/settings.json` holds your overrides. Delete `settings.json` (or Settings → Reset defaults) to go back to stock.
 
 | Setting | Default | Description |
+|---------|---------|-------------|
+| `ENGINE` | `adobe` | `adobe` (Photoshop/Illustrator) or `affinity` (unified app via MCP) |
 |---------|---------|-------------|
 | `PREVIEW_WIDTH` | 2000 | Max preview width in pixels |
 | `PREVIEW_HEIGHT` | 2000 | Max preview height in pixels |
@@ -237,6 +246,10 @@ All Adobe/WinRAR paths auto-detect from `C:\Program Files`, so most people never
 | `ADOBE_RECOVERY_WAIT` | 20 | Seconds to wait after restarting Adobe |
 | `DOCUMENT_TIMEOUT` | 60 | Seconds to wait for a document to finish opening |
 | `MAX_RETRIES` | 2 | Number of automatic retries on recoverable errors |
+| `AFFINITY_MCP_PORT` | 6767 | Local Affinity scripting server port |
+| `AFFINITY_STARTUP_WAIT` | 25 | Seconds to wait for Affinity to launch |
+| `AFFINITY_RECOVERY_WAIT` | 20 | Seconds to wait after restarting Affinity |
+| `THEME` | `dark` | Startup theme (`dark` or `light`) |
 
 ---
 
@@ -247,6 +260,9 @@ All Adobe/WinRAR paths auto-detect from `C:\Program Files`, so most people never
 | `.psd` | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `.ai` | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `.eps` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `.afphoto` | Affinity-only | ✓ | best-effort | best-effort | best-effort |
+| `.afdesign` | Affinity-only | ✓ | best-effort | best-effort | best-effort |
+| `.afpub` | Affinity-only | ✓ | best-effort | best-effort | best-effort |
 | `.indd` | — | — | — | — | — |
 
 ---
@@ -293,7 +309,12 @@ main.py                     Entry point — wires all components
 │   ├── jsx_bridge.py       Loads and executes ExtendScript (.jsx)
 │   └── recovery.py         Error classification and recovery
 │
+├── affinity/               Affinity MCP integration (unified Canva-era app)
+│   ├── affinity.py         Affinity controller (open/render/hide/save/close)
+│   └── mcp_client.py       Stdlib-only MCP client (Streamable HTTP + SSE)
+│
 ├── files/                  File operations
+│   ├── app_settings.py     Settings store (data/settings.json overrides)
 │   ├── archive.py          RAR creation via Rar.exe
 │   ├── cleanup.py          Post-archive source deletion
 │   ├── filename.py         Name normalization and deduplication
@@ -303,11 +324,13 @@ main.py                     Entry point — wires all components
 │   └── storage.py          Disk space monitoring
 │
 ├── ui/                     User interface
-│   └── app.py              Tkinter GUI
+│   ├── app.py              Tkinter GUI
+│   └── settings_dialog.py  Settings dialog (engine/apps/formats/preview/pipeline/theme)
 │
-└── scripts/                Adobe ExtendScript files
+└── scripts/                Adobe ExtendScript + Affinity JS automation
     ├── photoshop_export.jsx
-    └── illustrator_export.jsx
+    ├── illustrator_export.jsx
+    └── affinity_pipeline.js
 ```
 
 ### Threading
@@ -326,6 +349,14 @@ Communication uses `threading.Event`. The UI sets the event when a name is submi
 - One document opens, gets processed, then closes.
 - On a recoverable error, the Adobe application restarts.
 - When the queue finishes, the application shuts down.
+
+### Affinity MCP lifecycle
+
+- Affinity attaches to your running instance, or launches its own (only self-launched instances are ever quit — yours is left alone).
+- Files open via `Affinity.exe <file>`; readiness is confirmed by polling the open document name over MCP.
+- Previews render from the live canvas (`render` tool) — no filesystem sandbox involved.
+- Hide/save/close run as SDK scripts and are best-effort: a mismatch logs a warning and the job continues with the file as-is.
+- The MCP handshake runs once per queue; on recoverable errors Affinity restarts like the Adobe apps.
 
 ---
 

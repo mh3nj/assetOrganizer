@@ -5,8 +5,9 @@
 | Issue | Status | Impact |
 |-------|--------|--------|
 | EPS may trigger Illustrator save dialog | Adobe limitation | Pipeline pauses until dialog is dismissed |
-| Photoshop required for PSD files | Expected | Non-PSD workflows unaffected |
-| Illustrator required for AI/EPS files | Expected | Non-AI workflows unaffected |
+| Photoshop required for PSD files | Expected (Adobe engine) | Non-PSD workflows unaffected |
+| Illustrator required for AI/EPS files | Expected (Adobe engine) | Non-AI workflows unaffected |
+| Affinity MCP server off / Affinity closed | Expected (Affinity engine) | Startup warns; Affinity jobs fail with a clear message |
 | Session file can corrupt on crash | Known | Delete `data/session.json` to recover |
 | Source file deletion race with antivirus | Known | May require manual cleanup |
 | Single-threaded queue | By design | Processing time is linear per file |
@@ -30,8 +31,27 @@ Illustrator may prompt for EPS export options when saving an `.eps` file via COM
 
 ---
 
-## Session file corruption
+## Affinity hide / save / close are best-effort
 
+**Status:** By design
+**Impact:** Those steps may log warnings and leave the file as-is
+
+The SDK surface differs between Affinity builds, so `scripts/affinity_pipeline.js` probes several API shapes and reports what worked. A total mismatch never fails the job — rename, archive, verify, and cleanup still run on the original bytes.
+
+**Workaround:** Harden the strategy lists to your exact build — see [docs/affinity-setup.md](docs/affinity-setup.md#hardening-the-scripts-for-your-exact-build).
+
+---
+
+## Affinity PSD/AI fidelity
+
+**Status:** Affinity limitation
+**Impact:** Previews (and archives) may differ from Adobe's rendering
+
+Affinity imports PSD/AI as an approximation: exotic effects, smart objects, and artboards may rasterize or shift. Always check the preview at the naming prompt before confirming.
+
+---
+
+## Session file corruption
 **Status:** Known  
 **Impact:** Resume Failed becomes unavailable until the file is removed
 
