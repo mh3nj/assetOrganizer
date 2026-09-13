@@ -76,9 +76,11 @@ class Config:
             r"C:\Program Files\Affinity\Photo 2\Photo.exe",
             r"C:\Program Files\Affinity\Designer 2\Designer.exe",
         )
-        self.AFFINITY_MCP_HOST = "127.0.0.1"
+        # Affinity's MCP server is IPv6-loopback-only ([::1]:6767).
+        # Never change this to 127.0.0.1 — the server refuses IPv4.
+        self.AFFINITY_MCP_HOST = "::1"
         self.AFFINITY_MCP_PORT = 6767
-        self.AFFINITY_MCP_URL = f"http://{self.AFFINITY_MCP_HOST}:{self.AFFINITY_MCP_PORT}"
+        self.AFFINITY_MCP_URL = self._mcp_url()
         self.AFFINITY_STARTUP_WAIT = 25
         self.AFFINITY_RECOVERY_WAIT = 20
 
@@ -150,7 +152,13 @@ class Config:
             elif key == "ARCHIVE_PROFILE" and isinstance(value, dict):
                 self.ARCHIVE_PROFILE.update(value)
         # The MCP URL always follows the (possibly overridden) host/port.
-        self.AFFINITY_MCP_URL = f"http://{self.AFFINITY_MCP_HOST}:{self.AFFINITY_MCP_PORT}"
+        self.AFFINITY_MCP_URL = self._mcp_url()
+
+    def _mcp_url(self) -> str:
+        host = self.AFFINITY_MCP_HOST
+        if ":" in host and not host.startswith("["):
+            host = f"[{host}]"
+        return f"http://{host}:{self.AFFINITY_MCP_PORT}"
 
     def scannable_extensions(self) -> list:
         """Extensions the scanner should pick up for the active engine."""

@@ -39,6 +39,18 @@ class MCPClient:
         self._request_id = 0
         self._id_lock = threading.Lock()
         self._tools_cache = None
+        # Loopback must never go through a system/VPN proxy.
+        self._opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        # One persistent SSE session: the server binds initialize to the
+        # connection, so every call must reuse it (fresh connection per
+        # call answers "Session not initialized").
+        # RLock: _ensure_session calls _read_preamble while holding it,
+        # which re-enters via call_tool. A plain Lock would deadlock.
+        self._session_lock = threading.RLock()
+        self._session_endpoint = None
+        self._session_responses = None
+        self._session_stop = None
+        self._session_reader = None
 
     # ── logging ──
 
@@ -59,6 +71,9 @@ class MCPClient:
 
     def _split_base(self):
         without_scheme = self.base_url.split("://", 1)[-1].rstrip("/")
+        if without_scheme.startswith("["):
+            host, _, port = without_scheme[1:].partition("]:")
+            return host, int(port) if port else 80
         if ":" in without_scheme:
             host, port = without_scheme.rsplit(":", 1)
             return host, int(port)
@@ -79,42 +94,115 @@ class MCPClient:
             method="POST",
         )
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+            with self._opener.open(request, timeout=self.timeout) as response:
                 body = response.read()
                 return response.headers.get_content_type(), body
         except urllib.error.HTTPError as error:
             raise MCPError(f"HTTP {error.code} from {url}: {error.read()[:300]!r}")
 
-    # ── Streamable HTTP transport ──
+    # ── persistent SSE session ──
 
-    def _rpc_streamable(self, method, params=None):
+    def _reset_session(self):
+        stop, reader = self._session_stop, self._session_reader
+        self._session_endpoint = None
+        self._session_responses = None
+        self._session_stop = None
+        self._session_reader = None
+        if stop:
+            stop.set()
+
+    def _ensure_session(self):
+        """Open one SSE connection and initialize it (idempotent)."""
+        with self._session_lock:
+            if (self._session_endpoint and self._session_reader
+                    and self._session_reader.is_alive()):
+                return
+            self._reset_session()
+            responses = queue.Queue()
+            stop = threading.Event()
+            reader = threading.Thread(
+                target=self._sse_reader, args=(responses, stop), daemon=True
+            )
+            reader.start()
+            self._session_responses = responses
+            self._session_stop = stop
+            self._session_reader = reader
+            try:
+                endpoint = self._wait_for_endpoint(responses)
+                self._session_endpoint = endpoint
+                init = self._post_session("initialize", {
+                    "protocolVersion": PROTOCOL_VERSION,
+                    "capabilities": {},
+                    "clientInfo": {"name": "AssetOrganizer", "version": "1.3.0"},
+                })
+                try:
+                    self._post_json(endpoint, {
+                        "jsonrpc": "2.0", "method": "notifications/initialized",
+                        "params": {},
+                    }, "application/json, text/event-stream")
+                except Exception:
+                    pass
+                self._log(f"MCP session ready: {init.get('serverInfo')}")
+                self._read_preamble()
+            except Exception:
+                self._reset_session()
+                raise
+
+    def _post_session(self, method, params=None):
         payload = {"jsonrpc": "2.0", "id": self._next_id(),
                    "method": method, "params": params or {}}
-        ctype, body = self._post_json(
-            self.base_url + "/mcp", payload,
-            "application/json, text/event-stream",
-        )
-        if ctype == "application/json":
-            return self._unwrap(json.loads(body.decode("utf-8")), payload["id"])
-        return self._unwrap(self._last_sse_message(body.decode("utf-8")), payload["id"])
+        self._post_json(self._session_endpoint, payload,
+                        "application/json, text/event-stream")
+        return self._unwrap(self._wait_for_id(self._session_responses, payload["id"]),
+                            payload["id"])
 
-    # ── legacy SSE transport ──
-
-    def _rpc_sse(self, method, params=None):
-        responses = queue.Queue()
-        stop = threading.Event()
-        reader = threading.Thread(
-            target=self._sse_reader, args=(responses, stop), daemon=True
-        )
-        reader.start()
+    def _read_preamble(self):
+        """The server requires the 'preamble' doc before execute_script."""
         try:
-            endpoint = self._wait_for_endpoint(responses)
-            payload = {"jsonrpc": "2.0", "id": self._next_id(),
-                       "method": method, "params": params or {}}
-            self._post_json(endpoint, payload, "application/json, text/event-stream")
-            return self._unwrap(self._wait_for_id(responses, payload["id"]), payload["id"])
-        finally:
-            stop.set()
+            tools = self._post_session("tools/list", {}).get("tools", [])
+            self._tools_cache = tools
+            by_name = {t.get("name", ""): t for t in tools}
+            # Exact read tool first — a loose "documentation" match would
+            # grab the *list* tool and the preamble would never be read.
+            read_tool = by_name.get("read_sdk_documentation_topic") or next(
+                (t for t in tools
+                 if "read" in t.get("name", "").lower()
+                 and "document" in t.get("name", "").lower()),
+                None,
+            )
+            if not read_tool:
+                return
+            filename = "preamble"
+            list_tool = by_name.get("list_sdk_documentation")
+            if list_tool:
+                try:
+                    parts = [i.get("text", "") for i in
+                             self.call_tool(list_tool["name"], {})
+                             if isinstance(i, dict)]
+                    names = [n.strip() for n in " ".join(parts).replace(",", " ").split()]
+                    hit = next((n for n in names if n.lower() == "preamble"), None)
+                    if hit:
+                        filename = hit
+                except Exception:
+                    pass
+            args = self._fill_arguments(read_tool, {"filename": filename})
+            self.call_tool(read_tool["name"], args)
+            self._log("MCP preamble read.")
+        except Exception as error:
+            self._log(f"Preamble read skipped: {error}")
+
+    def _rpc(self, method, params=None):
+        self._ensure_session()
+        try:
+            return self._post_session(method, params)
+        except MCPError as error:
+            if "initialized" in str(error).lower() or "EOF" in str(error):
+                self._log(f"Session dropped ({error}); re-establishing once.")
+                with self._session_lock:
+                    self._reset_session()
+                self._ensure_session()
+                return self._post_session(method, params)
+            raise
 
     def _sse_reader(self, responses, stop):
         try:
@@ -123,7 +211,7 @@ class MCPClient:
                 headers={"Accept": "text/event-stream"},
                 method="GET",
             )
-            with urllib.request.urlopen(request, timeout=self.timeout) as stream:
+            with self._opener.open(request, timeout=self.timeout) as stream:
                 event, data_lines = None, []
                 while not stop.is_set():
                     line = stream.readline().decode("utf-8", "replace")
@@ -177,18 +265,6 @@ class MCPClient:
     # ── shared ──
 
     @staticmethod
-    def _last_sse_message(text):
-        data_lines = [l[5:].strip() for l in text.splitlines() if l.startswith("data:")]
-        for raw in reversed(data_lines):
-            try:
-                message = json.loads(raw)
-                if isinstance(message, dict) and ("result" in message or "error" in message):
-                    return message
-            except json.JSONDecodeError:
-                continue
-        raise MCPError("No JSON-RPC message found in the MCP response stream.")
-
-    @staticmethod
     def _unwrap(message, request_id):
         if not isinstance(message, dict):
             raise MCPError(f"Unexpected MCP response: {message!r}")
@@ -196,26 +272,12 @@ class MCPClient:
             raise MCPError(f"MCP error: {message['error']}")
         return message.get("result", {})
 
-    def _rpc(self, method, params=None):
-        try:
-            return self._rpc_streamable(method, params)
-        except (MCPError, urllib.error.URLError, OSError) as streamable_error:
-            self._log(f"Streamable HTTP failed ({streamable_error}); trying SSE.")
-            return self._rpc_sse(method, params)
-
     # ── session ──
 
     def initialize(self):
-        result = self._rpc("initialize", {
-            "protocolVersion": PROTOCOL_VERSION,
-            "capabilities": {},
-            "clientInfo": {"name": "AssetOrganizer", "version": "1.3.0"},
-        })
-        try:
-            self._rpc_streamable("notifications/initialized", {})
-        except Exception:
-            pass
-        return result
+        """Open (or reuse) the session. Returns the initialize result."""
+        self._ensure_session()
+        return {"session": self._session_endpoint}
 
     # ── tools ──
 
@@ -303,11 +365,16 @@ class MCPClient:
             )
         return output
 
-    def render_current_view(self) -> tuple:
-        """Render the open document's current spread. Returns (mime, bytes)."""
-        tool = self._find_tool("render_spread", "render_selection", "render")
-        args = self._fill_arguments(tool, {})
-        for item in self.call_tool(tool["name"], args):
+    def render_spread(self, document_session_uuid, spread_index=0) -> tuple:
+        """Render a spread to JPEG. Returns (mime, bytes).
+
+        Affinity caps renders at 1024px on the long edge — plenty for
+        naming previews and AVIFs, documented in docs/affinity-setup.md.
+        """
+        for item in self.call_tool("render_spread", {
+            "document_session_uuid": document_session_uuid,
+            "spread_index": spread_index,
+        }):
             if not isinstance(item, dict):
                 continue
             if item.get("type") == "image":
