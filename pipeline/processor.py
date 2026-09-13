@@ -29,13 +29,14 @@ from adobe.recovery import AdobeRecovery
 
 class AssetProcessor:
 
-    def __init__(self, config, logger, preview, archive, photoshop, illustrator, storage, session=None):
+    def __init__(self, config, logger, preview, archive, photoshop, illustrator, storage, session=None, affinity=None):
         self.config = config
         self.logger = logger
         self.preview = preview
         self.archive = archive
         self.photoshop = photoshop
         self.illustrator = illustrator
+        self.affinity = affinity
         self.storage = storage
         self.session = session
 
@@ -126,9 +127,25 @@ class AssetProcessor:
             f"Failed: {self._failed}"
         )
 
+    def _use_affinity(self, ext: str) -> bool:
+        """Native Affinity files always use Affinity; PSD/AI/EPS follow ENGINE."""
+        if ext in (".afphoto", ".afdesign", ".afpub"):
+            return True
+        return getattr(self.config, "ENGINE", "adobe") == "affinity"
+
+    def _require_affinity(self):
+        if not self.affinity:
+            raise RuntimeError(
+                "Job needs Affinity but no Affinity controller is wired. "
+                "Set ENGINE to 'adobe' or check the Affinity setup."
+            )
+        return self.affinity
+
     def open_document(self, job):
         ext = job.source_file.suffix.lower()
-        if ext == ".psd":
+        if self._use_affinity(ext):
+            self._require_affinity().open_file(job.source_file)
+        elif ext == ".psd":
             self.photoshop.open_file(job.source_file)
         elif ext in (".ai", ".eps"):
             self.illustrator.open_file(job.source_file)
@@ -136,15 +153,19 @@ class AssetProcessor:
             raise RuntimeError(f"Unsupported asset: {job.source_file.suffix}")
 
     def create_png_preview(self, job) -> Path:
-        # Always render fresh from Adobe so user edits are captured
+        # Always render fresh from the app so user edits are captured.
+        # (Affinity renders JPEG bytes via MCP — still written to the
+        # .png sidecar path; the AVIF converter sniffs format via PIL.)
         png = job.source_file.with_suffix(".png")
         ext = job.source_file.suffix.lower()
-        if ext == ".psd":
+        if self._use_affinity(ext):
+            self._require_affinity().export_preview(png)
+        elif ext == ".psd":
             self.photoshop.export_preview(png)
         elif ext in (".ai", ".eps"):
             self.illustrator.export_preview(png)
         else:
-            raise RuntimeError("Unknown Adobe format.")
+            raise RuntimeError("Unknown format.")
         return png
 
     def request_name(self, job):
@@ -205,21 +226,27 @@ class AssetProcessor:
 
     def hide_layers(self, job):
         ext = job.source_file.suffix.lower()
-        if ext == ".psd":
+        if self._use_affinity(ext):
+            self._require_affinity().hide_layers()
+        elif ext == ".psd":
             self.photoshop.hide_layers()
         elif ext in (".ai", ".eps"):
             self.illustrator.hide_layers()
 
     def save_document(self, job):
         ext = job.source_file.suffix.lower()
-        if ext == ".psd":
+        if self._use_affinity(ext):
+            self._require_affinity().save()
+        elif ext == ".psd":
             self.photoshop.save()
         elif ext in (".ai", ".eps"):
             self.illustrator.save()
 
     def close_document(self, job):
         ext = job.source_file.suffix.lower()
-        if ext == ".psd":
+        if self._use_affinity(ext):
+            self._require_affinity().close_document()
+        elif ext == ".psd":
             self.photoshop.close_document()
         elif ext in (".ai", ".eps"):
             self.illustrator.close_document()
@@ -244,7 +271,9 @@ class AssetProcessor:
             job.error_message = str(error)
             self.logger.warning("Recoverable Adobe error detected. Restarting.")
             ext = job.source_file.suffix.lower()
-            if ext == ".psd":
+            if self._use_affinity(ext):
+                self._require_affinity().restart()
+            elif ext == ".psd":
                 self.photoshop.restart()
             elif ext in (".ai", ".eps"):
                 self.illustrator.restart()
