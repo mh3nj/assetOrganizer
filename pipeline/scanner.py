@@ -19,18 +19,22 @@ class AssetScanner:
     def scan_folder(self, folder: Path) -> list:
         folder = Path(folder)
         self.logger.info(f"Scanning: {folder}")
+        try:
+            wanted = set(self.config.scannable_extensions())
+        except AttributeError:
+            wanted = {".psd", ".ai", ".eps"}
         jobs = []
         for item in folder.rglob("*"):
             if not item.is_file():
                 continue
             extension = item.suffix.lower()
-            if extension in (".psd", ".ai", ".eps"):
+            if extension in wanted:
                 job = Job(item)
                 existing = self.find_existing_preview(item)
                 if existing:
                     job.existing_preview = existing
                 jobs.append(job)
-        self.logger.info(f"Found {len(jobs)} Adobe files.")
+        self.logger.info(f"Found {len(jobs)} scannable files ({sorted(wanted)}).")
         return jobs
 
     def find_existing_preview(self, source: Path):

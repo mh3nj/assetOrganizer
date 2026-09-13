@@ -16,6 +16,7 @@ from files.archive import RarArchive
 
 from adobe.photoshop import PhotoshopController
 from adobe.illustrator import IllustratorController
+from affinity.affinity import AffinityController
 
 from pipeline.processor import AssetProcessor
 
@@ -50,10 +51,12 @@ def main():
 
     photoshop = PhotoshopController(config, logger)
     illustrator = IllustratorController(config, logger)
+    affinity = AffinityController(config, logger)
 
     processor = AssetProcessor(
         config, logger, preview, archive,
         photoshop, illustrator, storage,
+        affinity=affinity,
     )
 
     queue = JobQueue(processor, logger)

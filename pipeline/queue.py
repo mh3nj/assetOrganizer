@@ -52,13 +52,19 @@ class JobQueue:
         self.logger.info("=" * 50)
         self.logger.info(self.processor.get_summary())
         self.logger.info("=" * 50)
-        # Close Adobe applications when queue is fully done
+        # Close external applications when queue is fully done
         try:
             self.processor.photoshop.close()
         except Exception:
             pass
         try:
             self.processor.illustrator.close()
+        except Exception:
+            pass
+        try:
+            affinity = getattr(self.processor, "affinity", None)
+            if affinity:
+                affinity.close()
         except Exception:
             pass
 
