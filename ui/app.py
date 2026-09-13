@@ -11,6 +11,8 @@ from pathlib import Path
 from PIL import Image, ImageTk
 
 from pipeline.job import Job
+from files.app_settings import AppSettings
+from ui.settings_dialog import SettingsDialog
 
 
 THEMES = {
@@ -51,7 +53,7 @@ class ApplicationUI:
         self.scanner = scanner
         self.queue = queue
         self.session = session
-        self._theme = "dark"
+        self._theme = getattr(config, "THEME", "dark")
 
         self.current_request = None
         self.current_preview = None
@@ -84,7 +86,10 @@ class ApplicationUI:
         self.theme_button = tk.Button(top, text="Theme", command=self.toggle_theme, width=8)
         self.theme_button.pack(side="right")
 
-        self.status_label = tk.Label(top, text="Ready", anchor="w")
+        self.settings_button = tk.Button(top, text="⚙ Settings", command=self.open_settings, width=10)
+        self.settings_button.pack(side="right", padx=(0, 5))
+
+        self.status_label = tk.Label(top, text=self._ready_text(), anchor="w")
         self.status_label.pack(side="left", fill="x", expand=True, padx=5)
 
         # ── Progress ──
@@ -141,7 +146,29 @@ class ApplicationUI:
 
     def toggle_theme(self):
         self._theme = "light" if self._theme == "dark" else "dark"
+        self.config.THEME = self._theme
+        try:
+            AppSettings(self.config.SETTINGS_FILE).set("THEME", self._theme)
+        except Exception:
+            pass
         self.apply_theme()
+
+    def _ready_text(self) -> str:
+        engine = getattr(self.config, "ENGINE", "adobe").capitalize()
+        return f"Ready ({engine})"
+
+    # ──────────────────────────────────────────────
+    # Settings
+    # ──────────────────────────────────────────────
+
+    def open_settings(self):
+        SettingsDialog(self.root, self.config, on_saved=self._on_settings_saved)
+
+    def _on_settings_saved(self):
+        self._theme = getattr(self.config, "THEME", "dark")
+        self.apply_theme()
+        self.status_label.config(text=self._ready_text())
+        self.logger.info("Settings saved.")
 
     def apply_theme(self):
         t = THEMES[self._theme]
@@ -152,7 +179,7 @@ class ApplicationUI:
         self.preview_label.configure(bg=t["preview_bg"], fg=t["fg"])
         self.name_entry.configure(bg=t["entry_bg"], fg=t["entry_fg"], insertbackground=t["fg"])
         self.log_area.configure(bg=t["log_bg"], fg=t["log_fg"])
-        for w in (self.folder_button, self.resume_failed_button, self.theme_button, self.start_button,
+        for w in (self.folder_button, self.resume_failed_button, self.theme_button, self.settings_button, self.start_button,
                   self.pause_button, self.resume_button, self.regen_button, self.confirm_button):
             w.configure(bg=t["button_bg"], fg=t["button_fg"])
         for child in self.root.winfo_children():
