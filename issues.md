@@ -31,14 +31,17 @@ Illustrator may prompt for EPS export options when saving an `.eps` file via COM
 
 ---
 
-## Affinity hide / save / close are best-effort
+## Affinity close/save on build 3.2.1
 
-**Status:** By design
-**Impact:** Those steps may log warnings and leave the file as-is
+**Status:** Verified upstream gap (Canva's own SDK tests: "waiting for close to be fixed")
+**Impact:** Tabs accumulate; PSDs archive with layers as-is
 
-The SDK surface differs between Affinity builds, so `scripts/affinity_pipeline.js` probes several API shapes and reports what worked. A total mismatch never fails the job — rename, archive, verify, and cleanup still run on the original bytes.
+- `doc.close()` / `closeAsync()` throw `NOT_IMPLEMENTED` — nothing can close tabs yet. Split large batches; close tabs by hand.
+- `doc.save()` throws `SAVE_TO_TEMPORARY_ARCHIVE_ERROR` for PSD imports (no PSD write-back). Rename, archive, verify, and cleanup still run on the original bytes.
+- Hide layers **works** (`selectAll()` + `hideSelection()`, render-confirmed), but only affects the in-memory view since save can't persist it for PSDs.
+- Renders cap at 1024px (`render_spread` limit).
 
-**Workaround:** Harden the strategy lists to your exact build — see [docs/affinity-setup.md](docs/affinity-setup.md#hardening-the-scripts-for-your-exact-build).
+**Workaround:** None needed for organizing — previews, naming, archives all work. For clean-layer archives, prefer the Adobe engine until Canva ships the fix.
 
 ---
 

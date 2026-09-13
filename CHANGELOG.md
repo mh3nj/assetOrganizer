@@ -12,9 +12,9 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 
 - **Affinity engine.** New `ENGINE` setting (`adobe`/`affinity`). In Affinity mode PSD/AI/EPS open in the unified Affinity app (Canva-era) via its local MCP scripting server, and native `.afphoto`/`.afdesign`/`.afpub` files become scannable. (`affinity/`, `processor.py`, `scanner.py`)
-- **Stdlib-only MCP client.** Speaks Streamable HTTP with SSE fallback, no new dependencies. Tool calls are schema-driven (`tools/list` first), so they adapt to the running Affinity build's parameter names. (`affinity/mcp_client.py`)
-- **Affinity pipeline scripts.** Probe, hide-layers, save, close, and current-doc-name helpers that always answer in one JSON line; the controller degrades gracefully (warn + continue) on API mismatches instead of failing jobs. (`scripts/affinity_pipeline.js`)
-- **Canvas-rendered previews.** Affinity previews come from the MCP `render` tool (live pixels, no filesystem sandbox); the existing AVIF/thumbnail path consumes them unchanged. (`affinity.py`, `preview.py`)
+- **Stdlib-only MCP client.** Persistent SSE session on the IPv6-only `[::1]:6767` (no new dependencies), automatic preamble handshake, schema-driven tool calls. (`affinity/mcp_client.py`)
+- **Affinity pipeline scripts.** Probe, session-UUID, hide-layers (`selectAll`+`hideSelection`, render-confirmed), save, close, and current-doc-name helpers answering in one JSON line; close/save degrade honestly where 3.2.1 throws `NOT_IMPLEMENTED`. (`scripts/affinity_pipeline.js`)
+- **Canvas-rendered previews.** Affinity previews come from `render_spread` keyed by document session UUID (live pixels, max 1024px, no filesystem sandbox); the existing AVIF/thumbnail path consumes them unchanged. (`affinity.py`, `preview.py`)
 - **⚙ Settings dialog.** Engine, app paths (Browse/Auto + found/missing status), formats, preview/AVIF numbers, pipeline timeouts, theme — saved machine-local to `data/settings.json` and applied live, no restart or rebuild. (`ui/settings_dialog.py`, `files/app_settings.py`)
 - **Persisted theme.** The Theme toggle now survives restarts. (`ui/app.py`)
 - **Engine indicator.** Status bar shows `Ready (Adobe)` / `Ready (Affinity)`. (`ui/app.py`)

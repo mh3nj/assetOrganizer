@@ -260,10 +260,12 @@ Prefer the in-app route: **⚙ Settings** writes to `data/settings.json` (gitign
 | `.psd` | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `.ai` | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `.eps` | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `.afphoto` | Affinity-only | ✓ | best-effort | best-effort | best-effort |
-| `.afdesign` | Affinity-only | ✓ | best-effort | best-effort | best-effort |
-| `.afpub` | Affinity-only | ✓ | best-effort | best-effort | best-effort |
+| `.afphoto` | Affinity-only | ✓ (1024px) | ✓ (artwork) | native-only | — (3.2.1) |
+| `.afdesign` | Affinity-only | ✓ (1024px) | ✓ (artwork) | native-only | — (3.2.1) |
+| `.afpub` | Affinity-only | ✓ (1024px) | ✓ (artwork) | native-only | — (3.2.1) |
 | `.indd` | — | — | — | — | — |
+
+Affinity PSD/AI/EPS rows behave like Adobe except: previews cap at 1024px, hide skips locked backgrounds, save-back and tab-close don't exist yet in 3.2.1 — see [docs/affinity-setup.md](docs/affinity-setup.md).
 
 ---
 
