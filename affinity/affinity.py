@@ -37,6 +37,9 @@ class AffinityController:
         self._process = None
         self._launched_here = False
         self._ready = False
+        self._files_opened = 0
+        self._close_warned = False
+        self._tabs_open = 0
 
     # ── lifecycle ──
 
@@ -131,9 +134,18 @@ class AffinityController:
     def open_file(self, file: Path):
         self.start()
         self.close_all_documents()
+        if self._should_recycle():
+            self.restart()
         self.logger.info(f"Opening in Affinity: {file.name}")
         subprocess.Popen([str(self.config.AFFINITY_PATH), str(file)])
         self.wait_until_ready(file.name)
+        self._files_opened += 1
+
+    def _should_recycle(self) -> bool:
+        """3.2.1 can't close tabs: recycle self-launched app every N files."""
+        every = int(getattr(self.config, "AFFINITY_RESTART_EVERY", 0) or 0)
+        return (every > 0 and self._launched_here
+                and self._files_opened > 0 and self._files_opened % every == 0)
 
     def wait_until_ready(self, expected_name=None, timeout=None):
         timeout = timeout or self.config.DOCUMENT_TIMEOUT
@@ -204,20 +216,29 @@ class AffinityController:
 
     def close_document(self):
         # Honest logging: 3.2.1 throws NOT_IMPLEMENTED for every close
-        # path, so tabs accumulate. Never fail the job over it — the
-        # next open still works, and self-launched restarts clear tabs.
+        # path, so tabs accumulate. Warn once per queue (not per job),
+        # count orphans for the end-of-queue summary, never fail the job.
+        # (ASCII only here - cp1256 consoles mangle em-dashes.)
         try:
             result = self._parse_result(self._run_script("aoClose"))
             if result.get("ok") and not result.get("alreadyClosed"):
                 self.logger.info("Affinity tab closed.")
-            elif result.get("alreadyClosed"):
+                return
+            if result.get("alreadyClosed"):
                 self.logger.info("Affinity already had no open document.")
-            else:
+                return
+            self._tabs_open += 1
+            detail = result.get("error") or result.get("tried")
+            if not self._close_warned:
+                self._close_warned = True
                 self.logger.warning(
-                    "Affinity cannot close tabs on this build "
-                    f"({result.get('error') or result.get('tried')}). "
-                    "Tabs will accumulate — close them by hand for big batches."
+                    f"Affinity cannot close tabs on this build ({detail}). "
+                    "Tabs will accumulate - close them by hand for big batches. "
+                    "Self-launched sessions recycle automatically "
+                    f"(every {getattr(self.config, 'AFFINITY_RESTART_EVERY', 0)} files)."
                 )
+            else:
+                self.logger.info(f"Affinity tab left open ({self._tabs_open} so far).")
         except Exception as error:
             self.logger.warning(f"Affinity close skipped: {error}")
 
@@ -227,7 +248,16 @@ class AffinityController:
     # ── recovery / shutdown ──
 
     def restart(self):
-        self.logger.warning("Restarting Affinity (error recovery).")
+        # Only ever terminate an instance WE launched. Attached to the
+        # user's own Affinity: just re-attach (no waits, no kill).
+        if not self._launched_here:
+            self._ready = False
+            self.start()
+            return
+        self.logger.warning(
+            f"Recycling self-launched Affinity after {self._files_opened} "
+            "file(s) to clear unclosable tabs."
+        )
         self.close_all_documents()
         if self._launched_here and self._process:
             try:
@@ -245,6 +275,11 @@ class AffinityController:
             self.close_all_documents()
         except Exception:
             pass
+        if self._tabs_open:
+            self.logger.warning(
+                f"Affinity left {self._tabs_open} tab(s) open "
+                "(3.2.1 cannot close them) - shut them by hand."
+            )
         if self._launched_here and self._process:
             try:
                 self._process.terminate()

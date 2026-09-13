@@ -83,6 +83,11 @@ class Config:
         self.AFFINITY_MCP_URL = self._mcp_url()
         self.AFFINITY_STARTUP_WAIT = 25
         self.AFFINITY_RECOVERY_WAIT = 20
+        # 3.2.1 cannot close tabs, so they accumulate per job. When THIS
+        # app launched Affinity itself, recycle it every N files to clear
+        # them (0 = never). Never touches your own Affinity instance:
+        # attached sessions only get a warning + end-of-queue summary.
+        self.AFFINITY_RESTART_EVERY = 10
 
         self.PREVIEW_WIDTH = 2000
         self.PREVIEW_HEIGHT = 2000
@@ -131,8 +136,8 @@ class Config:
                     "THUMB_QUALITY", "MINIMUM_FREE_SPACE_GB",
                     "ADOBE_STARTUP_WAIT", "ADOBE_RECOVERY_WAIT",
                     "AFFINITY_MCP_PORT", "AFFINITY_STARTUP_WAIT",
-                    "AFFINITY_RECOVERY_WAIT", "DOCUMENT_TIMEOUT",
-                    "MAX_RETRIES"}
+                    "AFFINITY_RECOVERY_WAIT", "AFFINITY_RESTART_EVERY",
+                    "DOCUMENT_TIMEOUT", "MAX_RETRIES"}
         for key, value in overrides.items():
             if key in path_keys and isinstance(value, str) and value:
                 setattr(self, key, Path(value))
