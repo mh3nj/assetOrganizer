@@ -157,7 +157,17 @@ class AffinityController:
             time.sleep(2)
 
     def export_preview(self, output: Path):
-        mime, pixels = self.mcp.render_current_view()
+        # render_spread needs the open document's session UUID, which
+        # only the SDK can tell us — fetch it first, then render.
+        # Affinity caps renders at 1024px; the AVIF stage scales anyway.
+        info = self._parse_result(self._run_script("aoSessionUuid"))
+        session_uuid = info.get("sessionUuid")
+        if not session_uuid:
+            raise RuntimeError(
+                f"Affinity preview failed: no session UUID "
+                f"({info.get('error') or 'no open document'})."
+            )
+        mime, pixels = self.mcp.render_spread(session_uuid, 0)
         self.logger.info(f"Affinity rendered preview ({mime}, {len(pixels) // 1024} KB)")
         Path(output).write_bytes(pixels)
 
@@ -165,10 +175,13 @@ class AffinityController:
         try:
             result = self._parse_result(self._run_script("aoHideVisibleLayers"))
             if result.get("ok"):
-                self.logger.info(f"Affinity hid {result.get('hidden', 0)} layer(s).")
+                self.logger.info(
+                    "Affinity hid artwork layers "
+                    f"(method={result.get('method')})."
+                )
             else:
                 self.logger.warning(
-                    "Affinity hide-layers unsupported on this build "
+                    "Affinity hide-layers failed "
                     f"({result.get('error') or result.get('tried')}). "
                     "Archiving with layers as-is."
                 )
@@ -190,9 +203,21 @@ class AffinityController:
             self.logger.warning(f"Affinity save skipped: {error}")
 
     def close_document(self):
+        # Honest logging: 3.2.1 throws NOT_IMPLEMENTED for every close
+        # path, so tabs accumulate. Never fail the job over it — the
+        # next open still works, and self-launched restarts clear tabs.
         try:
-            self._run_script("aoClose")
-            self.logger.info("Affinity tab closed.")
+            result = self._parse_result(self._run_script("aoClose"))
+            if result.get("ok") and not result.get("alreadyClosed"):
+                self.logger.info("Affinity tab closed.")
+            elif result.get("alreadyClosed"):
+                self.logger.info("Affinity already had no open document.")
+            else:
+                self.logger.warning(
+                    "Affinity cannot close tabs on this build "
+                    f"({result.get('error') or result.get('tried')}). "
+                    "Tabs will accumulate — close them by hand for big batches."
+                )
         except Exception as error:
             self.logger.warning(f"Affinity close skipped: {error}")
 

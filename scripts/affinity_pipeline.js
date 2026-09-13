@@ -35,12 +35,15 @@ function aoProbe()
 {
     // Reports which automation surface this Affinity build has, so the
     // controller (and the user, via the log) can see what will work.
+    // NOTE: doc members live on the prototype — read them on the
+    // instance (doc.sessionUuid), never on Object.getPrototypeOf(doc).
     try {
         var app = require('/application').app;
         var doc = app.documents.current;
         var info = { ok: true, hasDoc: !!doc, docName: null, can: {} };
         if (doc) {
-            info.docName = doc.name || doc.title || null;
+            try { info.docName = doc.title || doc.name || null; } catch (e) {}
+            try { info.sessionUuid = doc.sessionUuid || null; } catch (e) {}
             info.can.save = (typeof doc.save === 'function');
             info.can.close = (typeof doc.close === 'function');
         }
@@ -55,12 +58,9 @@ function aoProbe()
 }
 
 
-function aoHideVisibleLayers()
+function aoSessionUuid()
 {
-    // Best-effort: walk the live node graph for visible flags and flip
-    // them. Bounded (visited set + depth/node caps) so it can never hang
-    // on huge or cyclic documents. Direct sets may throw on builds that
-    // require DocumentCommands — those nodes are skipped and counted.
+    // The render_* tools need the open document's session UUID.
     try {
         var app = require('/application').app;
         var doc = app.documents.current;
@@ -68,62 +68,32 @@ function aoHideVisibleLayers()
             console.log(JSON.stringify({ ok: false, error: 'no open document' }));
             return;
         }
-        var SKIP = { parent: 1, document: 1, app: 1, application: 1 };
-        var visited = [];
-        var hidden = 0, skipped = 0, seen = 0;
-        var CAP_NODES = 8000, MAX_DEPTH = 12;
+        console.log(JSON.stringify({ ok: true, sessionUuid: doc.sessionUuid }));
+    } catch (e) {
+        console.log(JSON.stringify({ ok: false, error: String(e && e.message || e) }));
+    }
+}
 
-        function alreadySeen(obj) {
-            for (var i = 0; i < visited.length; i++) {
-                if (visited[i] === obj) return true;
-            }
-            return false;
+
+function aoHideVisibleLayers()
+{
+    // Verified on Affinity 3.2.1: doc.selectAll() + doc.hideSelection()
+    // hides the artwork layers (render-confirmed: sign face goes blank).
+    // Locked background layers stay visible — unlockSelection() is
+    // attempted first to minimize that. Direct isVisible assignment is
+    // a silent no-op in this SDK; commands are the only real path.
+    try {
+        var app = require('/application').app;
+        var doc = app.documents.current;
+        if (!doc) {
+            console.log(JSON.stringify({ ok: false, error: 'no open document' }));
+            return;
         }
-
-        function visit(obj, depth) {
-            if (!obj || depth > MAX_DEPTH || seen > CAP_NODES) return;
-            if ((typeof obj !== 'object' && typeof obj !== 'function') || alreadySeen(obj)) return;
-            visited.push(obj);
-            seen++;
-            var isVisible = obj.visible === true || obj.isVisible === true;
-            if (isVisible) {
-                try {
-                    if (obj.visible === true) obj.visible = false;
-                    else obj.isVisible = false;
-                    hidden++;
-                } catch (e) { skipped++; }
-            }
-            var keys = [];
-            try { keys = Object.keys(obj); } catch (e) { return; }
-            for (var i = 0; i < keys.length; i++) {
-                var k = keys[i];
-                if (SKIP[k]) continue;
-                var child;
-                try { child = obj[k]; } catch (e) { continue; }
-                if (child && (typeof child === 'object' || typeof child === 'function')) {
-                    if (typeof child.length === 'number' && typeof child !== 'string') {
-                        for (var j = 0; j < child.length && seen <= CAP_NODES; j++) {
-                            try { visit(child[j], depth + 1); } catch (e) { skipped++; }
-                        }
-                    } else {
-                        visit(child, depth + 1);
-                    }
-                }
-                if (seen > CAP_NODES) return;
-            }
-        }
-
-        var roots = [];
-        try {
-            if (doc.layers) roots.push(doc.layers);
-            if (doc.spreads) roots.push(doc.spreads);
-            if (doc.pages) roots.push(doc.pages);
-            if (doc.children) roots.push(doc.children);
-        } catch (e) {}
-        if (roots.length === 0) roots.push(doc);
-        for (var r = 0; r < roots.length; r++) visit(roots[r], 0);
-
-        console.log(JSON.stringify({ ok: true, hidden: hidden, skipped: skipped }));
+        doc.selectAll();
+        var unlocked = true;
+        try { doc.unlockSelection(); } catch (e) { unlocked = false; }
+        doc.hideSelection();
+        console.log(JSON.stringify({ ok: true, method: 'selectAll+hideSelection', unlocked: unlocked }));
     } catch (e) {
         console.log(JSON.stringify({ ok: false, error: String(e && e.message || e) }));
     }
@@ -132,6 +102,9 @@ function aoHideVisibleLayers()
 
 function aoSave()
 {
+    // Verified on 3.2.1: doc.save() exists but PSD imports fail with
+    // SAVE_TO_TEMPORARY_ARCHIVE_ERROR (no PSD write-back). Native
+    // .afphoto/.afdesign saves may succeed — strategies cover both.
     try {
         var app = require('/application').app;
         var doc = app.documents.current;
@@ -162,6 +135,9 @@ function aoSave()
 
 function aoClose()
 {
+    // Verified on 3.2.1: close()/closeAsync() throw NOT_IMPLEMENTED
+    // (Canva's own SDK tests carry "waiting for close to be fixed").
+    // Strategies are kept so future builds light up with no code change.
     try {
         var app = require('/application').app;
         var doc = app.documents.current;
