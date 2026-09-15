@@ -13,7 +13,7 @@
   <a href="#"><img src="https://img.shields.io/badge/Adobe-Photoshop-blueviolet?logo=adobephotoshop&logoColor=white" alt="Photoshop"></a>
   <a href="#"><img src="https://img.shields.io/badge/Adobe-Illustrator-orange?logo=adobeillustrator&logoColor=white" alt="Illustrator"></a>
   <a href="docs/affinity-setup.md"><img src="https://img.shields.io/badge/Affinity-supported-68d9f0" alt="Affinity"></a>
-  <a href="https://github.com/mh3nj/assetOrganizer/releases"><img src="https://img.shields.io/badge/release-v1.3.0-brightgreen" alt="Release 1.3.0"></a>
+  <a href="https://github.com/mh3nj/assetOrganizer/releases"><img src="https://img.shields.io/badge/release-v1.3.1-brightgreen" alt="Release 1.3.1"></a>
   <a href="https://github.com/mh3nj/evoury"><img src="https://img.shields.io/badge/Evoury-DAM-ff69b4" alt="Evoury DAM"></a>
 </p>
 
@@ -39,7 +39,7 @@ Each asset goes through these stages in order:
 | 2 | Export PNG | Renders a full-resolution preview (Adobe ExtendScript, or Affinity MCP canvas render). |
 | 3 | Convert AVIF | Converts the PNG to AVIF. Produces a full preview and a 400×400 thumbnail. |
 | 4 | Name prompt | Shows the preview and waits for you to type a name. |
-| 5 | Hide layers | Hides all visible layers for a clean archive copy. |
+| 5 | Hide layers | Unlocks every layer first, then hides all artwork for a clean archive copy (one locked layer can no longer survive and bloat the file). |
 | 6 | Save | Saves the document in Adobe. |
 | 7 | Close tab | Closes the document tab. Saves changes, no dialog. |
 | 8 | Rename | Renames the source file, AVIF, and thumbnail to the chosen name. |
@@ -55,6 +55,8 @@ The queue is single-threaded. One file is processed completely before the next s
 
 - **One-by-one processing.** Never opens more than one Adobe document at once. Previous document is always closed before the next opens.
 - **Adobe or Affinity engine.** Flip between Photoshop/Illustrator and the unified Affinity app in Settings. Affinity previews render from the live canvas over MCP.
+- **Unlock-first layer hiding.** Every hide step unlocks all layers (and Illustrator page items; Affinity runs a multi-pass unlock+hide) before hiding, so no random locked-visible layer survives to bloat the archive.
+- **Affinity popup handling.** The updater popup is answered with Later and the template/welcome opener is closed automatically on start and before each file — the queue never stalls on them.
 - **Regenerate preview.** Edit the document in Adobe while the naming prompt is showing, then click "Regen Preview." The document is saved, re-exported, and the preview updates without breaking the pipeline.
 - **Resume failed.** If the app crashes, "Resume Failed" re-queues any incomplete jobs from the last session. Source files of incomplete jobs are always at their original path — they only get renamed after full success.
 - **Session persistence.** Progress saves to `data/session.json` after every job. On restart, the app can recover where it left off.
@@ -128,7 +130,7 @@ You usually don't need to edit anything afterwards: Adobe and WinRAR paths are *
 
 ### Prebuilt executable (recommended)
 
-Download the latest `AssetOrganizer.exe` from the [Releases page](#). Extract the archive and run the executable. No Python or dependencies required — everything is bundled.
+Download the latest `AssetOrganizer-vX.Y.Z.zip` from the [Releases page](https://github.com/mh3nj/assetOrganizer/releases). Extract the archive and run `AssetOrganizer/AssetOrganizer.exe`. No Python or dependencies required — everything is bundled.
 
 ### Run from source with setup script
 
@@ -269,7 +271,7 @@ Prefer the in-app route: **⚙ Settings** writes to `data/settings.json` (gitign
 | `.afpub` | Affinity-only | ✓ (1024px) | ✓ (artwork) | native-only | — (3.2.1) |
 | `.indd` | — | — | — | — | — |
 
-Affinity PSD/AI/EPS rows behave like Adobe except: previews cap at 1024px, hide skips locked backgrounds, save-back and tab-close don't exist yet in 3.2.1 — see [docs/affinity-setup.md](docs/affinity-setup.md).
+Affinity PSD/AI/EPS rows behave like Adobe except: previews cap at 1024px, hide runs a multi-pass unlock+hide (locked layers included), save-back and tab-close don't exist yet in 3.2.1 — see [docs/affinity-setup.md](docs/affinity-setup.md).
 
 ---
 
@@ -317,6 +319,7 @@ main.py                     Entry point — wires all components
 │
 ├── affinity/               Affinity MCP integration (unified Canva-era app)
 │   ├── affinity.py         Affinity controller (open/render/hide/save/close)
+│   ├── popups.py           Auto-dismiss updater + template/welcome popups
 │   └── mcp_client.py       Stdlib-only MCP client (Streamable HTTP + SSE)
 │
 ├── files/                  File operations
@@ -361,7 +364,8 @@ Communication uses `threading.Event`. The UI sets the event when a name is submi
 - Affinity attaches to your running instance, or launches its own (only self-launched instances are ever quit — yours is left alone).
 - Files open via `Affinity.exe <file>`; readiness is confirmed by polling the open document name over MCP.
 - Previews render from the live canvas (`render` tool) — no filesystem sandbox involved.
-- Hide/save/close run as SDK scripts and are best-effort: a mismatch logs a warning and the job continues with the file as-is.
+- Hide runs a multi-pass unlock+hide script and is best-effort like save/close: a mismatch logs a warning and the job continues with the file as-is.
+- Startup popups never stall the queue: the in-app updater is answered with Later and the template/welcome opener is closed automatically.
 - The MCP handshake runs once per queue; on recoverable errors Affinity restarts like the Adobe apps.
 
 ---
