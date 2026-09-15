@@ -30,17 +30,37 @@ function hideVisibleLayers()
 
 function processLayer(layer)
 {
-    if (layer.visible)
-    {
-        layer.visible = false;
-    }
+    // Unlock first: a locked layer throws on `visible = false` and
+    // aborts the loop, leaving random layers visible (and the file
+    // big). Every step is isolated so one stubborn item never stops
+    // the rest.
+    try { layer.locked = false; } catch (e) {}
     if (layer.layers && layer.layers.length)
     {
         for (var i = 0; i < layer.layers.length; i++)
         {
-            processLayer(layer.layers[i]);
+            try { processLayer(layer.layers[i]); } catch (e) {}
         }
     }
+    try
+    {
+        if (layer.pageItems && layer.pageItems.length)
+        {
+            for (var j = 0; j < layer.pageItems.length; j++)
+            {
+                try { layer.pageItems[j].locked = false; } catch (e) {}
+            }
+        }
+    }
+    catch (e) {}
+    try
+    {
+        if (layer.visible)
+        {
+            layer.visible = false;
+        }
+    }
+    catch (e) {}
 }
 
 
