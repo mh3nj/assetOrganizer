@@ -7,6 +7,17 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## 1.3.1 — 2026-09-15
+
+### Fixed
+
+- **Photoshop locked-visible layers.** `hideVisibleLayers` now unlocks every lock kind (`allLocked`/`locked`/pixels/position/transparent) before hiding, per-layer isolated, children before groups — one stubborn layer can no longer abort the loop and leave the file big. (`scripts/photoshop_export.jsx`)
+- **Illustrator locked layers.** Same unlock-first hardening for layers/sublayers plus `pageItems[].locked`, then hide. (`scripts/illustrator_export.jsx`)
+- **Affinity locked layers.** `aoHideVisibleLayers` now runs select-all → unlock-all/unlock-selection → hide-selection in 3 passes (layers freed in pass N hide in pass N+1) and clears the selection after. (`scripts/affinity_pipeline.js`)
+- **Affinity startup popups.** Asset Organizer now auto-dismisses the in-app updater (answers Later/No/Skip/Close) and the template/welcome/new-document opener (Close/Cancel/Escape) on Affinity start and before each open — Affinity-owned windows only, best-effort, never fails the job. (`affinity/popups.py`, `affinity.py`)
+
+---
+
 ## 1.3.0 — 2026-09-13
 
 ### Added
