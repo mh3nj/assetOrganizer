@@ -26,6 +26,12 @@ from pathlib import Path
 
 from affinity.mcp_client import MCPClient, MCPError
 
+try:
+    from affinity.popups import dismiss_affinity_popups
+except ImportError:  # pragma: no cover - popup dismissal is best-effort
+    def dismiss_affinity_popups(logger=None, timeout=0, poll=0.5):
+        return 0
+
 
 class AffinityController:
 
@@ -54,6 +60,14 @@ class AffinityController:
         else:
             self.logger.info("Connected to running Affinity.")
             self._launched_here = False
+        # Startup blockers: the in-app updater ("update available" —
+        # answer Later) and the template/welcome opener. Both appear
+        # async after launch and would stall the queue, so sweep them
+        # before the MCP handshake and again once ready.
+        try:
+            dismiss_affinity_popups(logger=self.logger, timeout=6)
+        except Exception:
+            pass
         self._wait_for_mcp()
         try:
             self.mcp.initialize()
@@ -138,6 +152,12 @@ class AffinityController:
             self.restart()
         self.logger.info(f"Opening in Affinity: {file.name}")
         subprocess.Popen([str(self.config.AFFINITY_PATH), str(file)])
+        # A late updater/template popup can steal focus and stall the
+        # open — sweep once before waiting for the document.
+        try:
+            dismiss_affinity_popups(logger=self.logger, timeout=4)
+        except Exception:
+            pass
         self.wait_until_ready(file.name)
         self._files_opened += 1
 

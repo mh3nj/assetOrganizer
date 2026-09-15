@@ -77,11 +77,12 @@ function aoSessionUuid()
 
 function aoHideVisibleLayers()
 {
-    // Verified on Affinity 3.2.1: doc.selectAll() + doc.hideSelection()
-    // hides the artwork layers (render-confirmed: sign face goes blank).
-    // Locked background layers stay visible — unlockSelection() is
-    // attempted first to minimize that. Direct isVisible assignment is
-    // a silent no-op in this SDK; commands are the only real path.
+    // A single locked-visible layer keeps the file big, and one
+    // selectAll+hide pass can leave exactly that behind (locked
+    // layers skip the hide). So: unlock everything first, then hide,
+    // and repeat up to 3 passes so layers unlocked in pass N are
+    // hidden in pass N+1. Every probe is guarded — unknown APIs on a
+    // given build just fall through to the next strategy.
     try {
         var app = require('/application').app;
         var doc = app.documents.current;
@@ -89,11 +90,27 @@ function aoHideVisibleLayers()
             console.log(JSON.stringify({ ok: false, error: 'no open document' }));
             return;
         }
-        doc.selectAll();
         var unlocked = true;
-        try { doc.unlockSelection(); } catch (e) { unlocked = false; }
-        doc.hideSelection();
-        console.log(JSON.stringify({ ok: true, method: 'selectAll+hideSelection', unlocked: unlocked }));
+        var hidSomething = false;
+        var lastError = null;
+        for (var pass = 0; pass < 3; pass++) {
+            try { doc.selectAll(); } catch (e) { lastError = String(e && e.message || e); continue; }
+            try {
+                if (typeof doc.unlockAll === 'function') { doc.unlockAll(); }
+            } catch (e) {}
+            try { doc.unlockSelection(); }
+            catch (e) {
+                unlocked = false;
+                lastError = String(e && e.message || e);
+            }
+            try {
+                doc.hideSelection();
+                hidSomething = true;
+            } catch (e) { lastError = String(e && e.message || e); }
+        }
+        try { if (typeof doc.clearSelection === 'function') { doc.clearSelection(); } } catch (e) {}
+        try { if (typeof doc.deselectAll === 'function') { doc.deselectAll(); } } catch (e) {}
+        console.log(JSON.stringify({ ok: true, method: 'selectAll+unlock+hide x3', unlocked: unlocked, hid: hidSomething, note: lastError }));
     } catch (e) {
         console.log(JSON.stringify({ ok: false, error: String(e && e.message || e) }));
     }
