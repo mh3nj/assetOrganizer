@@ -29,18 +29,42 @@ function hideVisibleLayers()
 }
 
 
+function unlockLayer(layer)
+{
+    // Unlock every lock kind first: a single allLocked/positionLocked
+    // layer throws on `visible = false` and aborts the whole loop,
+    // leaving random layers visible (and the file big). Each attempt
+    // is isolated so unknown properties on a build never stop us.
+    try { layer.allLocked = false; } catch (e) {}
+    try { layer.locked = false; } catch (e) {}
+    try { layer.pixelsLocked = false; } catch (e) {}
+    try { layer.positionLocked = false; } catch (e) {}
+    try { layer.transparentPixelsLocked = false; } catch (e) {}
+}
+
+
 function hideLayerSet(layers)
 {
     for (var i = 0; i < layers.length; i++)
     {
         var layer = layers[i];
+        try { unlockLayer(layer); } catch (e) {}
         if (layer.typename == "LayerSet")
         {
-            hideLayerSet(layer.layers);
+            // Unlock + hide children first, then the group itself.
+            try { hideLayerSet(layer.layers); } catch (e) {}
         }
-        if (layer.visible)
+        try
         {
-            layer.visible = false;
+            if (layer.visible)
+            {
+                layer.visible = false;
+            }
+        }
+        catch (e)
+        {
+            // One stubborn layer (e.g. background) must never abort
+            // the rest — continue hiding everything else.
         }
     }
 }
